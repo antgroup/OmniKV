@@ -49,13 +49,6 @@ You are a helpful assistant.<|eot_id|>
 
 {user_message}<|eot_id|><|start_header_id|>assistant<|end_header_id|>
 """,
-    'qwen_cot': """<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n
-<|im_start|>user\n{user_message}<|im_end|>\n
-<|im_start|>assistant\nEvidence (step by step) then answer: 1.""",
-    'qwen_cot_2stage': """<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n
-<|im_start|>user\n{user_message}<|im_end|>\n
-<|im_start|>assistant\nFirst, for a precise answer, we can break down this multi-hop question into two to four sub-questions, as follows:
-"""
 }
 
 
@@ -74,10 +67,5 @@ def get_chat_template(model_name, use_cot=False):
             return prompt_template['yi_cot']
         else:
             return prompt_template['yi']
-    elif 'qwen' in model_name:
-        if use_cot:
-            return prompt_template['qwen_cot']
-        else:
-            raise ValueError('Not Support')
     else:
         raise ValueError('Not Support')

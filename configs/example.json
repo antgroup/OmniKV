@@ -1,0 +1,19 @@
+{
+    "cpu_num_threads": 8,
+    "use_chat_template": false,
+    "cot": false,
+    "max_context_len": 128500,
+    "model_name": "../models/Llama-3-8B-Instruct-262k",
+    "load_in_8bit": false,
+    "load_in_4bit": false,
+    "model_cls": "multi",
+    "cache_cls": "multi",
+    "use_flash_attn": true,
+    "do_select_layers": "2,8,18",
+    "num_wait_load_layers": 1,
+    "real_offload": false,
+    "dense_more": true,
+    "num_of_selected_tokens": 0.067,
+    "selector_cls": "last",
+    "window_size": 16
+}

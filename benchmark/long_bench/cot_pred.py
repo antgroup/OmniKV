@@ -58,7 +58,6 @@ def main(cfg_path, test_num=0, base_data_path='benchmark/long_bench/data/', verb
                     "Then, i will directly give the color. The corresponding color is")
             else:
                 template_for_chat.prompt_template['llama_cot'] = template_for_chat.prompt_template['llama_cot_2stage']
-                template_for_chat.prompt_template['qwen_cot'] = template_for_chat.prompt_template['qwen_cot_2stage']
 
         data_lis = load_dataset(f"{base_data_path}{data}.jsonl")
         data_lis = data_lis[-test_num:]

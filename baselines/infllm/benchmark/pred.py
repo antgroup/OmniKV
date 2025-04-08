@@ -16,7 +16,7 @@ from transformers import (
     AutoConfig,
     LlamaForCausalLM,
 )
-from modeling.long_token_finder import LongTokenFinder
+from modeling._old_test import PreCheckLM
 from modeling.omnikv_config import LlamaCompressorConfig
 
 
@@ -72,7 +72,7 @@ def get_model_and_tokenizer(config, quant_config=None):
     else:
         cfg = LlamaCompressorConfig.from_pretrained(config.path)
         cfg.rope_scaling = None  # infllm不需要这个scaling。
-        model = LongTokenFinder.from_pretrained(
+        model = PreCheckLM.from_pretrained(
             config.path,
             config=cfg,
             torch_dtype=torch.bfloat16,

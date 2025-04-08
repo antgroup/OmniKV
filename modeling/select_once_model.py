@@ -3,11 +3,11 @@ import pickle
 
 import torch
 from transformers.models.llama.modeling_llama import *
-from modeling.compressor import LlamaCompressorConfig
+from modeling.compressor import OmniKVCompressorConfig
 from modeling.spec_cache import DynamicSubCache
 
 
-class TokenOnceConfig(LlamaCompressorConfig):
+class TokenOnceConfig(OmniKVCompressorConfig):
     def set_config(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)

@@ -1,15 +1,5 @@
 #!/bin/bash
 
-# 激活虚拟环境
-source /envs/fast/bin/activate
-conda deactivate
-if [ "$H2O" = "1" ]; then
-  source /envs/h2o/bin/activate
-fi
-which python
-which accelerate
-
-
 tasks=(
   "longbook_qa_eng"
   "longbook_choice_eng"

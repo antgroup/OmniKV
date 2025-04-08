@@ -22,20 +22,15 @@ from tiny_tools.tensor_tools import idx_tracer
 if transformers.__version__ >= "4.40":
     from transformers import (
         BitsAndBytesConfig,
-        Qwen2Config,
-        Qwen2ForCausalLM,
         GPTQConfig,
     )
-    from modeling.long_token_finder import LongTokenFinder
+    from modeling._old_test import PreCheckLM
     from modeling.token_model import TokenLM, TokenConfig
     from modeling.select_once_model import TokenOnceLM, TokenOnceConfig
     from modeling.offload_select_once import TokenOnceOffloadLM
     from modeling.omnikv import OmniKVMulLM
-    from modeling.qwen2_offload import Qwen2TokenOnceOffloadLM, QwenOffOnceConfig
     from modeling.brutal_offload_llama import BrutalOffloadLM
     from modeling.omnikv_config import LlamaCompressorConfig
-    from modeling.qwen2_eff import Qwen2EffForCausalLM, Qwen2EffConfig
-    from modeling.qwen2_offload_mul import Qwen2OmniKVMulLM
     from configs.template_for_chat import get_chat_template
     from baselines.infllm import get_infllm_api
 
@@ -114,7 +109,7 @@ def get_ntk_llama_chat_api_with_tokenizer_bs1(config_path):
     tkn = AutoTokenizer.from_pretrained(model_name)
     device = 0
     if "qwen" in model_cls:
-        cfg_cls = Qwen2EffConfig
+        raise NotImplementedError
     elif "llama" in model_cls or "262" in model_cls:
         cfg_cls = LlamaCompressorConfig
     else:
@@ -149,9 +144,9 @@ def get_ntk_llama_chat_api_with_tokenizer_bs1(config_path):
         kwargs["device_map"] = "auto"
 
     if "qwen" in model_cls:
-        model = Qwen2EffForCausalLM.from_pretrained(*args, **kwargs)
+        raise NotImplementedError
     elif "llama" in model_cls or "262" in model_cls:
-        model = LongTokenFinder.from_pretrained(*args, **kwargs)
+        model = PreCheckLM.from_pretrained(*args, **kwargs)
     else:
         raise ValueError
     if not load_in_8bit and not load_in_4bit and not mul_gpu:
@@ -199,7 +194,7 @@ def get_token_select_llama_chat_api_with_tokenizer_bs1(config_path):
     cls = config.get("model_cls", "token")
     model_name = config["model_name"]
 
-    cfg_cls = QwenOffOnceConfig if cls.startswith("qwen") else TokenConfig
+    cfg_cls = TokenConfig
     cfg = read_config(config_path)
     config = cfg_cls.from_pretrained(model_name)
     config.set_config(**cfg)
@@ -238,13 +233,8 @@ def get_token_select_llama_chat_api_with_tokenizer_bs1(config_path):
         # raise ValueError("change config to 'multi'")
     elif cls == "brutal_offload":
         model = BrutalOffloadLM.from_pretrained(*args, **kwargs)
-    elif cls == "qwen_once_offload":
-        # model = Qwen2TokenOnceOffloadLM.from_pretrained(*args, **kwargs)
-        raise ValueError("change config to 'qwen_multi'")
     elif cls == "multi":
         model = OmniKVMulLM.from_pretrained(*args, **kwargs)
-    elif cls == "qwen_multi":
-        model = Qwen2OmniKVMulLM.from_pretrained(*args, **kwargs)
     else:
         raise ValueError
 

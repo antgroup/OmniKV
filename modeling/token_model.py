@@ -1,7 +1,7 @@
 import torch
 import time
 from transformers.models.llama.modeling_llama import *
-from modeling.compressor import LlamaCompressorConfig
+from modeling.compressor import OmniKVCompressorConfig
 from modeling.spec_cache import DynamicSubCache
 import os
 import pickle
@@ -70,7 +70,7 @@ def count_big_tokens(attn_weights, layer_idx):
             pickle.dump(large_tokens_percentage, _out)
 
 
-class TokenConfig(LlamaCompressorConfig):
+class TokenConfig(OmniKVCompressorConfig):
     def set_config(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)

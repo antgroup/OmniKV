@@ -10,9 +10,9 @@
 │   └── template_for_chat.py    # 设置了cot测试下的prompt template
 ├── infer.py     # 代码核心入口之一，其中get_any_chat_api，接受一个cfg_path，返回由该cfg指定的模型和推理方法生成的chat api
 ├── modeling    # 模型定义
-│   ├── brutal_offload_llama.py        # 暴力offload，指从某一层开始，当需要时，将全部的KV cache在CPU和GPU间进行传输
-│   ├── compressor_v2.py  # --> omnikv_config.py  # 之前的一些尝试，基本不太用，遗留一些config的cls
-│   ├── omnikv_mul.py  # --> omnikv.py 主要方法，实验前向的实现
+│   ├── brutal_offload_llama.py   # 暴力offload，指从某一层开始，当需要时，将全部的KV cache在CPU和GPU间进行传输
+│   ├── compressor_v2.py  # 之前的一些尝试，基本不太用，遗留一些config的cls
+│   ├── omnikv_mul.py  # 主要方法，实验前向的实现
 │   ├── patch_of_llama3_1.py # 在当前transformers==4.41.2下，支持llama3.1的rope scaling
 │   ├── spec_cache.py # 自定义 omnikv kv cache class。核心class为 OmniKVMultiStageCache 
 ├── shells
