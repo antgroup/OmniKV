@@ -1,144 +1,88 @@
-```bash
-.
-├── baselines  # 所使用的baseline
-│   ├── infllm  # 可通过infer.py获取chat api，但是需要额外配置其yaml类型config
-│   ├── raw_h2o
-├── benchmark  # 测试的benchmark
-│   ├── infinite_bench    # 通过parallel_exp_for_inf.sh 启动.. 示例: bash shells/series_exps/parallel_exp_for_inf.sh configs/tests/xxx.json "0,1,2,3"
-│   ├── long_bench    # 通过parallel_exp_for_long.sh 启动.. 示例: bash shells/series_exps/parallel_exp_for_long.sh configs/tests/xxx.json "0,1,2,3"
-├── configs
-│   └── template_for_chat.py    # 设置了cot测试下的prompt template
-├── infer.py     # 代码核心入口之一，其中get_any_chat_api，接受一个cfg_path，返回由该cfg指定的模型和推理方法生成的chat api
-├── modeling    # 模型定义
-│   ├── brutal_offload_llama.py   # 暴力offload，指从某一层开始，当需要时，将全部的KV cache在CPU和GPU间进行传输
-│   ├── compressor_v2.py  # 之前的一些尝试，基本不太用，遗留一些config的cls
-│   ├── omnikv_mul.py  # 主要方法，实验前向的实现
-│   ├── patch_of_llama3_1.py # 在当前transformers==4.41.2下，支持llama3.1的rope scaling
-│   ├── spec_cache.py # 自定义 omnikv kv cache class。核心class为 OmniKVMultiStageCache 
-├── shells
-|   └── eval # Benchmark测试脚本
-│   └── temp_2stage.py     # 用来跑cot在2stage上的实验
-├── tiny_runs
-│   ├── ana_motivation2.py # 需要用来找到filter能力最强to identify the layer with the most potent filtering capability.的layer
-|   └── gen_latency_img.py # 生成OmniKV的延迟数据和对应图片
-└── tiny_tools
-    ├── draw.py
-    ├── get_code_id.py
-    ├── log.py
-    ├── read_json.py
-    ├── read_logs.py
-    ├── tensor_tools.py # SAVE_SELECTED_IDX实现，用来保存中间激活值，进行分析
-    └── test.py
+# [ICLR25] OmniKV: Dynamic Context Selection for Efficient Long-Context LLMs
+
+📄[OmniKV Paper Link](https://openreview.net/forum?id=ulCAPXYXfa)
+
+Existing inference acceleration methods attempt to reduce memory usage by *discarding "**unimportant**" tokens*. However, these methods have a critical flaw—they rely on attention weights at the current stage to determine token importance, ignoring the possibility that tokens may play a critical role in subsequent generation steps. This static importance evaluation mechanism fails to adapt to the dynamic contextual needs of the model, thus limiting its performance potential.
+
+Through in-depth analysis, we discovered a key phenomenon: within a single decode step, the important tokens identified across successive layers of the model exhibit high similarity. This observation opens up new possibilities for designing more efficient inference methods.
+
+![Insight](images/insights.png)
+
+**OmniKV**—an innovative inference approach that avoids token dropping and requires no additional training. The core ideas behind OmniKV include:
+
+1. **Dynamic Context Selection**: During the decoding phase, OmniKV first leverages the sparsity of attention maps to select a small subset of important tokens from a "filter" layer. Then, based on "inter-layer similarity," other layers directly use this subset of selected tokens as their context.
+
+2. **Full Token Retention**: Unlike existing methods, OmniKV retains the KV cache for all tokens, ensuring that the model can access complete information whenever necessary. This effectively eliminates performance degradation caused by information loss.
+
+OmniKV delivers near-original model performance on benchmarks such as **LongBench** and **InfiniteBench**. It excels in multi-step reasoning tasks (e.g., chain-of-thought reasoning), successfully extending the maximum context length of the **Llama-3-8B** model on a single A100 GPU from 128K to 450K—a **3.5x** improvement. Additionally, it achieved a **1.7x speedup** on both Huggingface Transformers and the lightweight large-model inference framework LightLLM. By leveraging **Tensor Parallelism** in LightLLM, OmniKV further supports multi-GPU parallelism.
+
+
+## OmniKV-huggingface
+
+### Requirements of OmniKV
+```python
+torch>=2.1.0
+transformers==4.41.2  # newer version may have compatibility issues
+omegaconf
+flash-attn
+rougea
+fuzzywuzzy
+jieba
+```
+Other baselines such as InfLLM and H2O, please configure the virtual environment according to the corresponding repositories.
+
+
+### Configuration
+We use json files for configuration. We have provided a `example.json` in `configs`.
+
+The description of the configuration files is as follows:
+
+```json
+{
+    "cpu_num_threads": 8,  // Number of threads used for offloading
+    "use_chat_template": false,  // Whether to use a chat template; in the paper, only CoT-related experiments set this to true
+    "cot": false,  // Whether to use Chain of Thought (CoT)
+    "max_context_len": 128500,  // Maximum context length
+    "model_name": "../models/Meta-Llama-3-8B-Instruct",  // Path to the model
+    "load_in_8bit": false,  // 8-bit quantization for weights
+    "load_in_4bit": false,  // 4-bit quantization for weights
+    "model_cls": "multi",  // Model class for OmniKV
+    "cache_cls": "multi",  // KV cache class for OmniKV
+    "use_flash_attn": true,  // Use flash attention to accelerate prefill
+    "do_select_layers": "2,8,18",  // Specify which layers to use for selecting important tokens
+    "num_wait_load_layers": 1,  // For each filter layer, how many additional layers entirely on the GPU with the full KV cache to wait for slower KV cache reads from the CPU
+    "real_offload": false,  // Whether to perform actual offloading; can be disabled when GPU memory is sufficient to further accelerate computation
+    "dense_more": true,  // Make wait_load_layers perform full attention, as reading from the CPU is slower (currently, false is not supported)
+    "num_of_selected_tokens": 0.067,  // Number of tokens selected per filter layer, supports both integer and float values
+    "selector_cls": "last",  // Selector class ["last", "uniform", "exp"]
+    "window_size": 16  // Observation window size, only effective for "uniform" or "exp"
+}
 ```
 
+### Evaluation
+#### Prepare Dataset
+Longbench: Download the `THUDM/LongBench` dataset from Hugging Face, and extract the files from `data.zip` to the directory `benchmark/long_bench/data`.
 
+Infbench: Download the `xinrongzhang2022/InfiniteBench` dataset from Hugging Face, and copy the downloaded files to the directory `benchmark/infinite_bench/data`.
 
-# 1. 修改代码库
+#### Run Scripts
 
-1. 根据上面的文件结构图删除不在里面的文件
-
-2. compressor_v2.py --> omnikv_config.py 这个文件改一下名（需要修改一下相关依赖），里面应该仅仅保留一个config相关的class就行，其他模型代码应该可以删除掉。
-
-3. omnikv_mul.py  --> omnikv.py 这个文件改一下名（需要修改一下相关依赖）
-
-4. 大写OmniKV全局替换成OmniKV，小写omnikv替换成omnikv
-
-5. spec_cache.py 文件删除一些用不到的class。在之前的相关py代码删除后，如果查找不到某个class在其他文件使用过就删除下吧
-
-6. configs 里面保留几个典型的配置，然后修改下名字。其他的删掉就可以
-
-# 2. OmniKV (README大纲)
-
-This repository contains the code related to the experiments in the paper [OmniKV: Dynamic Context Selection for Efficient Long-Context LLMs](??) 这里之后把链接替换为arxiv link. We offer an implementation of OmniKV based on Llama in the [**Huggingface Transformers**](https://github.com/huggingface/transformers), and we also provide an implementation based on [**Lightllm**](https://github.com/ModelTC/lightllm). Additionally, we supply the relevant evaluation code for Longbench and Infinite Bench.
-
-## OmniKV-Huggingface
-
-### Installation
-
+For Longbench:
 ```bash
-conda create -n omnikv python=3.10
-conda activate omnikv
-pip install xxxx (这里看下语雀文档？或者我之前写的readme，我记得transformers==4.41.2，其他的记不清了，直接pip安装对应几个包即可)
+PYTHONPATH=./ bash shells/eval/eval_any_long.sh configs/example.json 1
+# $1 => config path
+# $2 => world size (number of workers for testing)
 ```
 
-### Usage
-
-这一部分得麻烦你仔细写下，我记不太清楚具体的启动项了
-
-#### Config (arguments)
-
-|     | Type | Description |
-| --- | ---- | ----------- |
-| xxx |      |             |
-|     |      |             |
-|     |      |             |
-
-#### LongBench
-
-这个地方，保存一个config就行（30%KV cache）
-
-用`shells/eval/eval_any_long.sh` 这个给个运行示例？
-
-#### InfiniteBench
-
-用上面那个config就行
-
-用`shells/eval/eval_any_inf.sh` 这个给个运行示例？
-
-#### Efficiency
-
-`tiny_runs/gen_latency_img.py` 对应了测试效率的代码。启动项和对应的示例麻烦补充下
-
-`shells`文件夹里好像也有对应的`efficiency_test.sh`，你可以对照一下？
-
+For Infbench:
 ```bash
-xx
+PYTHONPATH=./ bash shells/eval/eval_any_inf.sh configs/example.json
+# $1 => config path
 ```
 
-### File Structure
+### Analysis
+**Find Best "Filter Layers"**: Set the environment variable `SAVE_SELECTED_IDX=xxx` to save the model's intermediate activation values into `xxx.pkl`.
 
-The roles of different files in the repository are as follows:
-
-```bash
-    .
-    ├── baselines  # Utilized baselines
-    │   ├── infllm  # Allows chat API via infer.py, requiring additional YAML config setup
-    │   ├── raw_h2o # Allows chat API via infer.py
-    ├── benchmark  # Testing benchmarks
-    │   ├── infinite_bench    # Initiated by parallel_exp_for_inf.sh, e.g., bash shells/series_exps/parallel_exp_for_inf.sh configs/tests/xxx.json "0,1,2,3"
-    │   ├── long_bench    # Initiated by parallel_exp_for_long.sh, e.g., bash shells/series_exps/parallel_exp_for_long.sh configs/tests/xxx.json "0,1,2,3"
-    ├── configs
-    │   └── template_for_chat.py    # Configures the prompt template for CoT testing
-    ├── infer.py     # One of the core entry points, where get_any_chat_api accepts a cfg_path and returns the chat API generated by the model and inference method specified by the cfg
-    ├── modeling    # Model definitions
-    │   ├── brutal_offload_llama.py        # Forceful offload, beginning from a certain layer, transferring the entire KV cache between CPU and GPU as needed
-    │   ├── omnikv_config.py  # Previous attempts, largely unused, retaining some config classes
-    │   ├── omnikv.py  # Main method, implementation of forward experiments
-    │   ├── patch_of_llama3_1.py # Supports rope scaling of llama3.1 under current transformers==4.41.2
-    │   ├── spec_cache.py # Custom omnikv KV cache class. The core class is OmniKVMultiStageCache 
-    ├── shells
-    │   └── eval  # scripts for benchmark 
-    │   └── temp_2stage.py     # Used for running CoT experiments in 2stage
-    ├── tiny_runs
-    |   ├── ana_motivation2.py  # To identify the layer with the best filtering capability
-    |   └── gen_latency_img.py # Generates latency data and corresponding images for OmniKV
-    └── tiny_tools
-        ├── draw.py
-        ├── get_code_id.py
-        ├── log.py
-        ├── read_json.py
-        ├── read_logs.py
-        ├── tensor_tools.py # Implements SAVE_SELECTED_IDX to save intermediate activations for analysis
-        └── test.py
-```
-
-#### Find Best "Filter Layers"
-
-Set the environment variable `SAVE_SELECTED_IDX=xxx` to save the model's intermediate activation values into `xxx.pkl`. The specific command is as follows:
-
-```bash
-这里也麻烦田哥你搞一下
-```
 
 ## OmniKV-Lightllm
 
@@ -150,8 +94,7 @@ Set the environment variable `SAVE_SELECTED_IDX=xxx` to save the model's interme
 conda create -n lightllm python=3.9 -y
 conda activate lightllm
 # Download the latest source code for Lightllm
-git clone XXXXXX!!!
-cd lightllm/lightllm
+cd omnikv-lightllm
 # Install Lightllm's dependencies
 pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu124
 # Install Lightllm
@@ -160,39 +103,7 @@ python setup.py install
 
 ### Usage
 
-Change `"model_type": "llama"` to `"model_type": "llama_omnikv"` in the `config.json` file of the downloaded Hugging Face Llama weights. 
-
-A simple script prevents storage redundancy (create file link) as demonstrated below.
-
-```bash
-#!/bin/bash
-
-# Define source and target directories
-SOURCE_DIR="./Llama-3-8B-Instruct-262k"
-TARGET_DIR="./Llama-3-8B-Instruct-262k-omnikv"
-
-# Create target directory if it does not exist
-mkdir -p "$TARGET_DIR"
-
-# Iterate over all files in the source directory
-find "$SOURCE_DIR" -type f | while read filepath; do
-    # Extract relative path
-    relative_path="${filepath#$SOURCE_DIR/}"
-    target_path="$TARGET_DIR/$relative_path"
-
-    # Create parent directory for the target file
-    mkdir -p "$(dirname "$target_path")"
-
-    # Check if the file is a .json file
-    if [[ "$filepath" == *.json ]]; then
-        # If it is a .json file, copy the file
-        cp "$filepath" "$target_path"
-    else
-        # If it is not a .json file, create a hard link (or use ln -s for a symbolic link)
-        ln "$filepath" "$target_path"
-    fi
-done
-```
+Change `"model_type": "llama"` to `"model_type": "llama_omnikv"` in the `config.json` file of the downloaded Hugging Face Llama weights. The `do_select_layers` is hardcoded in `lightllm/models/llama_omnikv/layer_infer/transformer_layer_infer.py`.
 
 Then, launch using the following command.
 
@@ -205,3 +116,66 @@ Only `mode=triton_flashdecoding` has been adapted to OmniKV. `max_total_token_nu
 Please note that the layers selected for filtering are currently hardcoded in the code, and at present, only the Llama-3-8B-Instruct and Llama-3-70B-Instruct model series are supported.
 
 
+## Citation
+```text
+@inproceedings{
+    hao2025omnikv,
+    title={Omni{KV}: Dynamic Context Selection for Efficient Long-Context {LLM}s},
+    author={Jitai Hao and Yuke Zhu and Tian Wang and Jun Yu and Xin Xin and Bo Zheng and Zhaochun Ren and Sheng Guo},
+    booktitle={The Thirteenth International Conference on Learning Representations},
+    year={2025},
+    url={https://openreview.net/forum?id=ulCAPXYXfa}
+}
+```
+
+## Acknowledgement
+Thanks to H2O, InfLLM, LongBench, and InfBench for their open-source contributions, which have greatly accelerated the progress of our project.
+
+Thanks to the lightweight and easily modifiable inference framework [LightLLM](https://github.com/ModelTC/lightllm) for enabling multi-gpus functionality and tensor parallelism.
+
+## Code Structure
+
+```bash
+├── baselines
+│   ├── infllm  # Modified from https://github.com/thunlp/InfLLM
+│   └── raw_h2o  # Modified from https://github.com/FMInference/H2O/tree/main/h2o_hf
+├── benchmark
+│   ├── infinite_bench  # Modified from https://github.com/OpenBMB/InfiniteBench
+│   └── long_bench  # Modified from https://github.com/THUDM/LongBench
+├── configs
+│   ├── example.json  # Example configuration file
+│   └── template_for_chat.py  # Configures the prompt template for CoT testing
+├── infer.py  # One of the core entry points; contains `get_any_chat_api` that takes a `cfg_path` and returns the chat API generated by the specified model and inference method.
+├── modeling
+│   ├── brutal_offload_llama.py  # Brutal offloading: starting from a specific layer, KV cache is fully transferred between CPU and GPU as needed.
+│   ├── compressor.py
+│   ├── _old_test.py
+│   ├── offload_select_once.py
+│   ├── omnikv.py   # Main model-related implementation for OmniKV
+│   ├── omnikv_config.py  # Configuration class for OmniKV
+│   ├── patch_of_llama3_1.py  # Supports rope scaling for LLaMA 3.1 under `transformers==4.41.2`
+│   ├── select_once_model.py
+│   ├── spec_cache.py  # Main KV cache-related implementation for OmniKV
+│   └── token_model.py
+├── shells
+│   ├── eval
+│   │   ├── efficiency_test.sh
+│   │   ├── eval_any_inf.sh  # Tests infbench
+│   │   └── eval_any_long.sh  # Tests longbench
+│   ├── series_exps 
+│   │   └── parallel_cot.sh  # Tests CoT performance
+│   └── temp_2stage.py
+├── tiny_runs  # Mainly contains code for activation value analysis
+│   ├── ana_cot.py
+│   ├── ana_motivation2.py   # Identifies the layer with the best filtering capability
+│   ├── detail_attn_feature.py
+│   ├── end_to_end_latency_test.py  # Generates latency data and corresponding graphs for OmniKV (HF version)
+│   ├── make_2_stage_questions.py  # Generates 2StageRetr dataset
+└── tiny_tools
+    ├── draw.py
+    ├── get_code_id.py
+    ├── log.py
+    ├── read_json.py
+    ├── read_logs.py
+    └── tensor_tools.py  # Implements `SAVE_SELECTED_IDX` to save intermediate activations for analysis
+```
