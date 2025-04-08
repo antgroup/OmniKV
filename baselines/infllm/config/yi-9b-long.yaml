@@ -1,0 +1,22 @@
+model:
+  type: inf-llm
+  path: /input/jitai/huggingface/hub/01ai/Yi-9B-200K
+  block_size: 128
+  fattn: false
+  n_init: 128
+  n_local: 1024
+  topk: 8
+  repr_topk: 4
+  max_cached_block: 64
+  exc_block_size: 512
+  base: 500000
+  distance_scale: 1.0
+
+max_len: 2147483647
+chunk_size: 8192
+conv_type: llama-3-inst
+truncation: middle
+
+# 怎么计算百分比？n_local/avg_len+n_init/avg_len+repr_topk/block_size+max_cached_block*block_size/avg_len
+# inf bench 4096/128000+128/128000+4/128+32*128/128000
+# long bench 1152/9418+8/32+16*32/9418

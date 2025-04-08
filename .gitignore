@@ -1,0 +1,75 @@
+#通用的Git忽略规则
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+*.iml
+*.zip
+
+# Python相关
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Jupyter notebook相关的忽略规则
+.ipynb_checkpoints/
+
+# 编译产物和日志文件
+build/
+dist/
+logs/
+*.log
+nohup.out
+
+# 数据科学与机器学习相关
+*.ipynb
+*.egg
+*.whl
+
+# TensorFlow相关
+.tensorflow/
+tfcompile.*
+tfprof.*
+
+# PyTorch相关
+.pth
+*.pt
+*.ckpt
+*.pk
+*.pkl
+runs/
+events.out.tfevents.*
+
+# Keras相关
+.keras/
+*.h5
+
+# matplotlib和图形界面相关缓存
+._*
+.cache/
+*.cache
+.mplcache/
+
+# Conda环境和pip缓存
+.env
+.venv/
+env/
+envs/
+requirements.txt.lock
+pip-log.txt
+pip-wheel-metadata/
+
+# Colab和JupyterLab notebook checkpoints
+.checkpoint/
+
+# MLflow相关
+mlruns/
+
+# Ignore output directories specific to your project, e.g., where models or predictions are saved
+results/
+output/
+models/
+trained_models/
+cached_files/

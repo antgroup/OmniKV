@@ -1,0 +1,19 @@
+model:
+  type: inf-llm
+  path: /input/ocr_data/huggingface/models/Meta-Llama-3___1-70B-Instruct/
+  block_size: 64
+  fattn: false
+  n_init: 128
+  n_local: 1024
+  # how many units are selected
+  topk: 32
+  repr_topk: 8
+  max_cached_block: 128
+  exc_block_size: 512
+  base: 283461213
+  distance_scale: 1.0
+
+max_len: 128000
+chunk_size: 8192
+conv_type: llama-3-inst
+truncation: middle
