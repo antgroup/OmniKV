@@ -37,26 +37,24 @@ We use json files for configuration. We have provided a `example.json` in `confi
 
 The description of the configuration files is as follows:
 
-```json
-{
-    "cpu_num_threads": 8,  // Number of threads used for offloading
-    "use_chat_template": false,  // Whether to use a chat template; in the paper, only CoT-related experiments set this to true
-    "cot": false,  // Whether to use Chain of Thought (CoT)
-    "max_context_len": 128500,  // Maximum context length
-    "model_name": "../models/Meta-Llama-3-8B-Instruct",  // Path to the model
-    "load_in_8bit": false,  // 8-bit quantization for weights
-    "load_in_4bit": false,  // 4-bit quantization for weights
-    "model_cls": "multi",  // Model class for OmniKV
-    "cache_cls": "multi",  // KV cache class for OmniKV
-    "use_flash_attn": true,  // Use flash attention to accelerate prefill
-    "do_select_layers": "2,8,18",  // Specify which layers to use for selecting important tokens
-    "num_wait_load_layers": 1,  // For each filter layer, how many additional layers entirely on the GPU with the full KV cache to wait for slower KV cache reads from the CPU
-    "real_offload": false,  // Whether to perform actual offloading; can be disabled when GPU memory is sufficient to further accelerate computation
-    "dense_more": true,  // Make wait_load_layers perform full attention, as reading from the CPU is slower (currently, false is not supported)
-    "num_of_selected_tokens": 0.067,  // Number of tokens selected per filter layer, supports both integer and float values
-    "selector_cls": "last",  // Selector class ["last", "uniform", "exp"]
-    "window_size": 16  // Observation window size, only effective for "uniform" or "exp"
-}
+```yaml
+cpu_num_threads: 8  # Number of threads used for offloading
+use_chat_template: false  # Whether to use a chat template; in the paper, only CoT-related experiments set this to true
+cot: false  # Whether to use Chain of Thought (CoT)
+max_context_len: 128500  # Maximum context length
+model_name: ../models/Meta-Llama-3-8B-Instruct  # Path to the model
+load_in_8bit: false  # 8-bit quantization for weights
+load_in_4bit: false  # 4-bit quantization for weights
+model_cls: multi  # Model class for OmniKV
+cache_cls: multi  # KV cache class for OmniKV
+use_flash_attn: true  # Use flash attention to accelerate prefill
+do_select_layers: "2,8,18"  # Specify which layers to use for selecting important tokens
+num_wait_load_layers: 1  # For each filter layer, how many additional layers entirely on the GPU with the full KV cache to wait for slower KV cache reads from the CPU
+real_offload: false  # Whether to perform actual offloading; can be disabled when GPU memory is sufficient to further accelerate computation
+dense_more: true  # Make wait_load_layers perform full attention, as reading from the CPU is slower (currently, false is not supported)
+num_of_selected_tokens: 0.067  # Number of tokens selected per filter layer, supports both integer and float values
+selector_cls: last  # Selector class ["last", "uniform", "exp"]
+window_size: 16  # Observation window size, only effective for "uniform" or "exp"
 ```
 
 ### Evaluation
