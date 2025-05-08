@@ -70,6 +70,5 @@ mlruns/
 # Ignore output directories specific to your project, e.g., where models or predictions are saved
 results/
 output/
-models/
 trained_models/
 cached_files/
