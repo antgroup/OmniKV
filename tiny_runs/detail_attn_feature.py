@@ -1,4 +1,6 @@
 import random
+import sys
+
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
@@ -39,6 +41,13 @@ def get_sum_attn_score_by_spec_idx(spec_idx, idx, val):
     mask[spec_idx] = True
     nv = torch.zeros_like(val)
     nv[idx] = val
+    plt.figure(figsize=(10, 10))
+    _1 = torch.ones_like(idx)
+    plt.scatter(idx.numpy(), _1.numpy(), label="idx")
+    plt.plot(y=nv.numpy(), label="nv")
+    plt.legend()
+    plt.savefig("debug.jpg", dpi=1000)
+    sys.exit(0)
     return torch.sum(nv[mask]).item()
 
 
