@@ -1,5 +1,6 @@
 #!/bin/bash
 
+mkdir debug_logs
 tasks=(
   "longbook_qa_eng"
   "longbook_choice_eng"
